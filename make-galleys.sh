@@ -13,9 +13,9 @@ elif [[ ${1: -5} == ".djvu" ]]; then
     pdftops -paper A4 -expand bare.pdf bare.ps
 fi
 
-WOFFSET="0w"
-HOFFSET="0h"
-SCALE="1"
+WOFFSET="0w"			# horizontal offset of even pages.
+HOFFSET="0h"			# vertical offset of ALL pages.
+SCALE="1"			# scale pages up or down. this plays oddly with original page sizes - particularly badly when the source text is letter-size.
 
 psbook -s32 bare.ps | psnup -2 > galley_32.ps
 
