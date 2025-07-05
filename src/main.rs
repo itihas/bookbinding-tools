@@ -1,34 +1,6 @@
 use clap::Parser;
 use lopdf::Document;
-
-// in points
-const A4_DIMS: (f64, f64) = (595.28, 841.89);
-const A5_DIMS: (f64, f64) = (419.53, 595.28);
-const A6_DIMS: (f64, f64) = (297.64, 419.53);
-const A7_DIMS: (f64, f64) = (209.76, 297.64);
-
-enum PaperSize {
-    A4,
-    A5,
-    A6,
-    A7,
-    Custom(Length, Length),
-}
-
-struct Length(f64);
-
-impl PaperSize {
-    fn get_size(&self) -> (Length, Length) {
-        let (w, h) = match self {
-            PaperSize::A4 => A4_DIMS,
-            PaperSize::A5 => A5_DIMS,
-            PaperSize::A6 => A6_DIMS,
-            PaperSize::A7 => A7_DIMS,
-            PaperSize::Custom(w, h) => (w.0, h.0),
-        };
-        (Length(w), Length(h))
-    }
-}
+use bookbinding_tools::{Block, PaperSize, Layout};
 
 #[derive(Parser)]
 #[command(name = "galley")]
@@ -44,13 +16,17 @@ struct Args {
     signature_size: u32,
 
     /// Size of the galley (paper you're printing on)
-    #[arg(short = 'g', long = "galleysize", default_value = "A4")]
-    galley_size: String,
+    #[arg(short = 'g', long = "galleysize", value_enum, default_value="a4")]
+    galley_size: PaperSize,
 
-    /// Size of the folio (final book size)
-    #[arg(short = 'f', long = "foliosize", default_value = "A5")]
-    folio_size: String,
+    /// Folio layout
+    #[arg(short = 'f', long = "folio", default_value_t, group = "layout")]
+    folio: bool,
 
+    /// Quarto layout
+    #[arg(short = 'q', long= "quarto", group = "layout")]
+    quarto: bool,
+    
     /// Pad final signature with blank pages
     #[arg(short = 'p', long = "pad")]
     pad: bool,
@@ -63,40 +39,49 @@ struct Args {
     #[arg(short = 'o', long = "output")]
     output_file: Option<String>,
 
-    /// Use landscape orientation for folio
-    #[arg(short = 'l', long = "landscape")]
-    folio_landscape: bool,
     /// Binding margin (inner edge)
     #[arg(long = "binding-margin", default_value = "10")]
     binding_margin: f64, // mm
 
     /// Cutting margin (trim allowance)
     /// deckles are cool, but sure have a cutting margin if you like
-    #[arg(long = "cutting-margin", default_value = "3")]
+    #[arg(long = "cutting-margin", default_value = "0")]
     cutting_margin: f64, // mm
 
-    /// Annotation margin (space for notes)
+    /// Annotation margin (space for notes on the outer edge)
     #[arg(long = "annotation-margin", default_value = "0")]
     annotation_margin: f64, // mm
 
-    /// Use PDF's crop box to remove existing margins
-    #[arg(long = "crop-margins")]
+    /// Use PDF's crop box, if it has one, to remove existing margins
+    #[arg(long = "try-crop-input-margins")]
     crop_existing: bool,
 
     /// Printer margin (unprintable area)
-    /// My EPSON L130 has a 3mm print margin, so that's the default here.
     #[arg(long = "printer-margin", default_value = "3")]
     printer_margin: f64, // mm
 
-    /// Prefer layout that minimizes manual cuts
-    #[arg(long = "minimize-cuts")]
-    minimize_cuts: bool,
+    // /// Prefer layout that minimizes manual cuts
+    // #[arg(long = "minimize-cuts")]
+    // minimize_cuts: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let doc = Document::load(args.input_file)?;
 
+
+    let block = Block {
+	galley: args.galley_size,
+	layout: Layout::Folio,	// TODO: figure out arg parsing for this in a little bit
+	signature_size: args.signature_size,
+	margins: bookbinding_tools::MarginSet {
+	    printer: args.printer_margin,
+	    cutting: args.cutting_margin,
+	    binding: args.binding_margin,
+	    annotation: args.annotation_margin
+	}
+    };
+    println!("Block struct: {:?}", block);
     // Get basic info
     let pages = doc.get_pages();
     println!("Page count: {}", pages.len());
