@@ -83,7 +83,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
     };
 
-    doc.pages_mut()
+    let indices = [
+        15, 16, 17, 14, 13, 18, 19, 12, 11, 20, 21, 10, 9, 22, 23, 8, 7, 24, 25, 6, 5, 26, 27, 4,
+        3, 28, 29, 2, 1, 30, 31, 0,
+    ];
+
+    let mut target_doc = pdfium.create_new_pdf()?;
+    let mut mark: u16 = 1;
+    let last = doc.pages().len();
+    while mark < last {
+        let left = last - mark;
+        let paper_size = doc
+            .pages()
+            .page_size(mark)
+            .map(|p| PdfPagePaperSize::from_points(p.width(), p.height()))?;
+
+        for index in indices {
+            let point = target_doc.pages().len();
+            if mark + index > left {
+                target_doc.pages_mut().create_page_at_end(paper_size)?;
+                println!("blank page at point {:?}", point);
+            } else {
+                target_doc
+                    .pages_mut()
+                    .copy_page_from_document(&doc, mark + index - 1, point)?;
+                println!("source page {:?} at point {:?}", mark + index, point);
+            }
+        }
+
+        mark += 32;
+    }
+
+    target_doc
+        .pages_mut()
         .tile_into_new_document(1, 2, PdfPagePaperSize::a4().landscape())?
         .save_to_file("test/test_file.pdf")?;
     Ok(())
