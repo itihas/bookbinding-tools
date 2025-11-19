@@ -16,8 +16,8 @@
     systems = [ "x86_64-linux" ];
     perSystem = { config, self', pkgs, lib, system, ... }:
     let
-      runtimeDeps = with pkgs; [ openssl ];
-      buildDeps = with pkgs; [ pkg-config rustPlatform.bindgenHook ];
+      runtimeDeps = with pkgs; [ openssl pdfium-binaries ];
+      buildDeps = with pkgs; [ pkg-config rustPlatform.bindgenHook pdfium-binaries ];
       devDeps = with pkgs; [ gdb ];
 
       cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
@@ -44,7 +44,9 @@
       pkgs.mkShell {
         shellHook = ''
           export RUST_SRC_PATH=${pkgs.rustPlatform.rustLibSrc}
+          export PDFIUM_DYNAMIC_LIB_PATH=${pkgs.pdfium-binaries}/lib
         '';
+        
         buildInputs = runtimeDeps;
         nativeBuildInputs = buildDeps ++ devDeps ++ [ rustc ];
       };
@@ -54,10 +56,10 @@
         overlays = [ (import inputs.rust-overlay) ];
       };
 
-      packages.default = self'.packages.toricelli;
+      packages.default = self'.packages.bookbinding-tools;
       devShells.default = self'.devShells.nightly;
 
-      packages.toricelli = (rustPackage "");
+      packages.bookbinding-tools = (rustPackage "");
 
       devShells.nightly = (mkDevShell (pkgs.rust-bin.selectLatestNightlyWith
       (toolchain: toolchain.default)));
