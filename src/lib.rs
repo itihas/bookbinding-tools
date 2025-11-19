@@ -95,14 +95,14 @@ pub enum Layout {
 }
 
 impl Layout {
-    fn transform() {
-        todo!()
+    pub fn pages_to_galley() {
+
     }
 }
 
 #[derive(Debug)]
 pub struct Block {
-    pub galley: PaperSize,
+    pub output_paper_size: PaperSize,
     pub layout: Layout,
     pub signature_size: u32,
     pub margins: MarginSet,
@@ -117,12 +117,20 @@ pub struct MarginSet {
 }
 
 impl MarginSet {
-    fn get_galley_margins() {
+    pub fn get_galley_margins() {
         todo!()
     }
-    fn get_page_margins() {
+    pub fn get_page_margins() {
         todo!()
     }
+
+    pub fn set_page_margins() {
+
+    }
+
+    // pub fn set_galley_margins(s: Self, g: Galley) {
+
+    // }
 }
 
 impl Block {

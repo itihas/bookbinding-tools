@@ -13,3 +13,4 @@ path = "src/main.rs"
 [dependencies]
 clap = { version = "4.5.39", features = ["derive"] }
 lopdf = "0.36.0"
+pdfium-render = "0.8.35"
