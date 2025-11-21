@@ -1,4 +1,4 @@
-use bookbinding_tools::{Block, Layout, PaperSize};
+use bookbinding_tools::PaperSize;
 use clap::Parser;
 use pdfium_render::prelude::*;
 
@@ -13,7 +13,7 @@ struct Args {
 
     /// Signature size
     #[arg(short = 's', long = "signature", default_value = "16")]
-    signature_size: u32,
+    signature_size: u16,
 
     /// Size of the paper you're printing on
     #[arg(short = 'g', long = "galleysize", value_enum, default_value = "a4")]
@@ -28,7 +28,7 @@ struct Args {
     quarto: bool,
 
     /// Pad final signature with blank pages
-    #[arg(short = 'p', long = "pad")]
+    #[arg(short = 'p', long = "pad", default_value_t)]
     pad: bool,
 
     /// Generate separate PDFs for odd/even pages
@@ -65,44 +65,55 @@ struct Args {
                          // minimize_cuts: bool,
 }
 
+fn signature_shuffle(size: u16) -> Result<Vec<u16>, std::io::Error> {
+    if size % 4 != 0 {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "signature size isn't divisible by 4. Can't assemble a signature this size out of folios."));
+    }
+
+    // e.g. when size = 12,
+    // folio_count = 3
+    // pivot = 6
+    let folio_count = size / 4;
+    let pivot = size / 2;
+    let mut indices: Vec<u16> = Vec::new();
+
+    // i = 0, 1, 2
+    // result 5, 6, 7, 4  ,  3, 8, 9, 2  ,  1, 10 , 11, 0
+    for i in 0..folio_count {
+        indices.push(pivot - 2 * i - 1);
+        indices.push(pivot + 2 * i);
+        indices.push(pivot + 2 * i + 1);
+        indices.push(pivot - 2 * i - 2);
+    }
+    Ok(indices)
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     let pdfium = Pdfium::default();
-    let mut doc = pdfium.load_pdf_from_file(args.input_file.as_str(), None)?;
+    let doc = pdfium.load_pdf_from_file(args.input_file.as_str(), None)?;
 
-    let block = Block {
-        output_paper_size: args.output_paper_size,
-        layout: Layout::Folio, // TODO: figure out arg parsing for this in a little bit
-        signature_size: args.signature_size,
-        margins: bookbinding_tools::MarginSet {
-            printer: args.printer_margin,
-            cutting: args.cutting_margin,
-            binding: args.binding_margin,
-            annotation: args.annotation_margin,
-        },
-    };
-
-    let indices = [
-        15, 16, 17, 14, 13, 18, 19, 12, 11, 20, 21, 10, 9, 22, 23, 8, 7, 24, 25, 6, 5, 26, 27, 4,
-        3, 28, 29, 2, 1, 30, 31, 0,
-    ];
+    let signature_size = args.signature_size;
+    let indices = signature_shuffle(signature_size)?;
 
     let mut target_doc = pdfium.create_new_pdf()?;
     let mut mark: u16 = 1;
     let last = doc.pages().len();
     while mark < last {
-        let left = last - mark;
         let paper_size = doc
             .pages()
             .page_size(mark)
             .map(|p| PdfPagePaperSize::from_points(p.width(), p.height()))?;
 
-        for index in indices {
+        for index in indices.iter() {
             let point = target_doc.pages().len();
-            if mark + index > left {
+            if mark + index > last {
                 target_doc.pages_mut().create_page_at_end(paper_size)?;
-                println!("blank page at point {:?}", point);
+                println!(
+                    "blank page at point {:?}: couldn't find a page at {:?} + {:?}",
+                    point, mark, index
+                );
             } else {
                 target_doc
                     .pages_mut()
@@ -111,7 +122,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        mark += 32;
+        mark += signature_size;
     }
 
     target_doc
